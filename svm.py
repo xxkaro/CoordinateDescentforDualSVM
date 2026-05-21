@@ -96,6 +96,6 @@ class LinearSVM:
 
         reg = 0.5 * np.dot(self.w_, self.w_)
         margins = np.maximum(1.0 - y * X.dot(self.w_), 0.0)
-        loss_val = self.C * self.loss_fn.primal_loss(margins)
+        loss_val = self.C * self.loss_fn.primal_loss(margins).sum()
 
         return reg + loss_val

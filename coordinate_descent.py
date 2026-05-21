@@ -1,5 +1,7 @@
+import time
 import numpy as np
 from scipy.sparse import csr_matrix
+from tqdm import tqdm
 
 def dual_coordinate_descent(
     X: csr_matrix,
@@ -55,8 +57,12 @@ def dual_coordinate_descent(
 
     obj_history = []
 
-    for k in range(max_iter):
-        perm = np.random.permutation(l)
+    pbar = tqdm(range(max_iter), desc="DCD", leave=True)
+    perm = np.arange(l)
+
+    for k in pbar:
+        # perm = np.random.permutation(l)
+        np.random.shuffle(perm)
 
         M_k = -np.inf 
         m_k = np.inf  
@@ -100,11 +106,11 @@ def dual_coordinate_descent(
         obj_history.append(dual_obj)
 
         if verbose and (k % 10 == 0 or k == max_iter - 1):
-            print(f"Iter {k:4d} | dual_obj = {dual_obj:.6e} | gap = {M_k - m_k:.6e}")
+            pbar.set_postfix({"Dual obj": f"{dual_obj:.6f}", "Gap": f"{M_k - m_k:.6e}"})
 
         if M_k - m_k < tol:
             if verbose:
-                print(f"Converged at iteration {k} (gap = {M_k - m_k:.6e} < {tol})")
+                pbar.write(f"Converged at iteration {k}: M_k - m_k = {M_k - m_k:.6e} < tol")
             break
 
     return w, alpha, obj_history

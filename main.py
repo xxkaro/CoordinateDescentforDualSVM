@@ -26,7 +26,7 @@ def main():
     C = 1.0
 
     print("\n=== DCD L1-SVM ===")
-    model_l1 = LinearSVM(loss="l1", C=C, max_iter=500, tol=1e-4, verbose=True)
+    model_l1 = LinearSVM(loss="l1", C=C, max_iter=500, tol=1e-4, verbose=False)
     t0 = time.time()
     model_l1.fit(X_train, y_train)
     t_l1 = time.time() - t0
@@ -35,7 +35,7 @@ def main():
     print(f"  Time: {t_l1:.3f}s | Acc: {acc_l1:.4f} | Primal obj: {pobj_l1:.6f}")
 
     print("\n=== DCD L2-SVM ===")
-    model_l2 = LinearSVM(loss="l2", C=C, max_iter=500, tol=1e-4, verbose=True)
+    model_l2 = LinearSVM(loss="l2", C=C, max_iter=500, tol=1e-4, verbose=False)
     t0 = time.time()
     model_l2.fit(X_train, y_train)
     t_l2 = time.time() - t0
