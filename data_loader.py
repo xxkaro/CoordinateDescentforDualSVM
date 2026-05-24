@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from scipy.sparse import csr_matrix
 
@@ -17,6 +19,9 @@ def load_libsvm(filepath: str) -> tuple[csr_matrix, np.ndarray]:
     values = []
     row_ptrs = [0]
 
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError(f"File not found: {filepath}")
+
     with open(filepath, "r") as f:
         for line in f:
             parts = line.strip().split()
@@ -34,7 +39,15 @@ def load_libsvm(filepath: str) -> tuple[csr_matrix, np.ndarray]:
             row_ptrs.append(row_ptrs[-1] + count)
 
     y = np.array(labels, dtype=np.float64)
-    y[y == 0] = -1.0
+    if not set(np.unique(y)).issubset({-1.0, 1.0}):
+        if set(np.unique(y)).issubset({0.0, 1.0}):
+            y[y == 0.0] = -1.0
+            print("Warning: Labels in {0, 1} detected. Converted to {-1, +1}.")
+        if set(np.unique(y)).issubset({1.0, 2.0}):
+            y[y == 2.0] = -1.0
+            print("Warning: Labels in {1, 2} detected. Converted to {-1, +1}.")
+        else:
+            raise ValueError("Labels must be in {-1, +1} or {0, 1} or {1, 2}")
 
     indices = np.array(indices, dtype=np.int32)
     values = np.array(values, dtype=np.float64)

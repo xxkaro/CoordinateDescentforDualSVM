@@ -2,6 +2,55 @@ import time
 import numpy as np
 from scipy.sparse import csr_matrix
 from tqdm import tqdm
+from numba import njit
+
+@njit(fastmath=True)
+def _dcd(X_data, X_indices, X_indptr, y, alpha, w, Q_bar_ii, Dii, U, perm):
+    M_k = -np.inf 
+    m_k = np.inf  
+
+    for idx in perm:
+        start, end = X_indptr[idx], X_indptr[idx + 1]
+        cols = X_indices[start:end]
+        vals = X_data[start:end]
+        yi = y[idx]
+        ai = alpha[idx]
+
+        # wTx = np.dot(w[cols], vals)
+        wTx = 0.0
+        for j in range(start, end):
+            wTx += w[X_indices[j]] * X_data[j]
+
+        G = yi * wTx - 1.0 + Dii * ai
+
+        if ai == 0.0:
+            PG = min(G, 0.0)
+        elif ai == U:
+            PG = max(G, 0.0)
+        else:
+            PG = G
+
+        M_k = max(M_k, PG)
+        m_k = min(m_k, PG)
+
+        if PG == 0.0:
+            continue
+
+        old_ai = ai
+        if Q_bar_ii[idx] > 0:
+            new_ai = min(max(old_ai - G / Q_bar_ii[idx], 0.0), U)
+        else:
+            new_ai = U
+
+        alpha[idx] = new_ai
+
+        scale = (new_ai - old_ai) * yi
+        if scale != 0.0:
+            # w[cols] += scale * vals
+            for j in range(start, end):
+                w[X_indices[j]] += scale * X_data[j]
+
+    return M_k, m_k
 
 def dual_coordinate_descent(
     X: csr_matrix,
@@ -10,6 +59,7 @@ def dual_coordinate_descent(
     Dii: float,
     max_iter: int = 1000,
     tol: float = 1e-4,
+    permute: bool = True,
     verbose: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, list[float]]:
     """
@@ -61,46 +111,10 @@ def dual_coordinate_descent(
     perm = np.arange(l)
 
     for k in pbar:
-        # perm = np.random.permutation(l)
-        np.random.shuffle(perm)
+        if permute:
+            np.random.shuffle(perm)
 
-        M_k = -np.inf 
-        m_k = np.inf  
-
-        for idx in perm:
-            start, end = X_indptr[idx], X_indptr[idx + 1]
-            cols = X_indices[start:end]
-            vals = X_data[start:end]
-            yi = y[idx]
-
-            wTx = np.dot(w[cols], vals)
-            G = yi * wTx - 1.0 + Dii * alpha[idx]
-
-            ai = alpha[idx]
-            if ai == 0.0:
-                PG = min(G, 0.0)
-            elif ai == U:
-                PG = max(G, 0.0)
-            else:
-                PG = G
-
-            M_k = max(M_k, PG)
-            m_k = min(m_k, PG)
-
-            if PG == 0.0:
-                continue
-
-            old_ai = ai
-            if Q_bar_ii[idx] > 0:
-                new_ai = min(max(old_ai - G / Q_bar_ii[idx], 0.0), U)
-            else:
-                new_ai = U
-
-            alpha[idx] = new_ai
-
-            scale = (new_ai - old_ai) * yi
-            if scale != 0.0:
-                w[cols] += scale * vals
+        M_k, m_k = _dcd(X_data, X_indices, X_indptr, y, alpha, w, Q_bar_ii, Dii, U, perm)
 
         dual_obj = 0.5 * np.dot(w, w) + 0.5 * Dii * np.dot(alpha, alpha) - np.sum(alpha)
         obj_history.append(dual_obj)
