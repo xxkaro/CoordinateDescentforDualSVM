@@ -31,6 +31,7 @@ class LinearSVM:
         max_iter: int = 1000,
         tol: float = 1e-4,
         permute: bool = True,
+        shrinking: bool = False,
         verbose: bool = False
     ):
         if loss not in LOSS_REGISTRY:
@@ -42,6 +43,7 @@ class LinearSVM:
         self.max_iter = max_iter
         self.tol = tol
         self.permute = permute
+        self.shrinking = shrinking
         self.verbose = verbose
         self.n_iter_ = 0
 
@@ -73,6 +75,7 @@ class LinearSVM:
             max_iter=self.max_iter,
             tol=self.tol,
             permute=self.permute,
+            shrinking=self.shrinking,
             verbose=self.verbose,
         )
         self.n_iter_ = len(self.obj_history_)
@@ -102,7 +105,7 @@ class LinearSVM:
         y = np.asarray(y, dtype=np.float64).ravel()
 
         reg = 0.5 * np.dot(self.w_, self.w_)
-        margins = np.maximum(1.0 - y * X.dot(self.w_), 0.0)
+        margins = y * X.dot(self.w_)
         loss_val = self.C * self.loss_fn.primal_loss(margins).sum()
 
         return reg + loss_val
