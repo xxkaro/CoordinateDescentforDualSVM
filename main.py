@@ -2,7 +2,7 @@ import time
 import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
-from sklearn.preprocessing import StandardScaler
+from itertools import product
 
 from data_loader import load_libsvm
 from data_generator import generate_sparse_dataset
@@ -10,7 +10,7 @@ from svm import LinearSVM
 
 
 def main():
-    data_path = "data/skin" 
+    data_path = "data/news20" 
     print(f"Loading {data_path} ...")
     X, y = load_libsvm(data_path)
     # X, y = generate_sparse_dataset(
@@ -21,13 +21,13 @@ def main():
     # )
     print(f"  X: {X.shape}, nnz = {X.nnz}")
     print(f"  y: {y.shape}, classes = {np.unique(y)}")
-
+ 
     np.random.seed(42)
     l = X.shape[0]
     perm = np.random.permutation(l)
     split = int(0.8 * l)
     train_idx, test_idx = perm[:split], perm[split:]
-
+ 
     X_train, y_train = X[train_idx], y[train_idx]
     X_test, y_test = X[test_idx], y[test_idx]
 
@@ -36,48 +36,52 @@ def main():
     # X_test = scaler.transform(X_test)
 
     C = 1.0
+    MAX_ITER = 5000
+    TOL = 1e-4
+ 
+    results = []
 
-    print("\n=== DCD L1-SVM ===")
-    model_l1 = LinearSVM(loss="l1", C=C, max_iter=5000, tol=1e-4, permute=True, verbose=False)
-    t0 = time.time()
-    model_l1.fit(X_train, y_train)
-    t_l1 = time.time() - t0
-    acc_l1 = model_l1.score(X_test, y_test)
-    pobj_l1 = model_l1.primal_objective(X_train, y_train)
-    print(f"  Time: {t_l1:.3f}s  | Iter: {model_l1.n_iter_} | Acc: {acc_l1:.4f} | Primal obj: {pobj_l1:.6f}")
+    for loss, do_permute, do_shrink in product(
+        ["l1", "l2"], [False, True], [False, True]
+    ):
+        label = f"DCD {loss.upper()} perm={do_permute:<5} shrink={do_shrink}"
+        print(f"\n=== {label} ===")
+ 
+        model = LinearSVM(
+            loss=loss, C=C, max_iter=MAX_ITER, tol=TOL,
+            permute=do_permute, shrinking=do_shrink, verbose=False,
+        )
+        t0 = time.time()
+        model.fit(X_train, y_train)
+        elapsed = time.time() - t0
+ 
+        acc = model.score(X_test, y_test)
+        pobj = model.primal_objective(X_train, y_train)
+        print(f"  Time: {elapsed:.3f}s | Iter: {model.n_iter_} | Acc: {acc:.4f} | Primal obj: {pobj:.6f}")
+ 
+        results.append((label, elapsed, model.n_iter_, acc, pobj))
+ 
+    for skl_loss, skl_label in [("hinge", "L1"), ("squared_hinge", "L2")]:
+        label = f"sklearn LinearSVC {skl_label}"
+        print(f"\n=== {label} ===")
+ 
+        skl = LinearSVC(loss=skl_loss, C=C, max_iter=MAX_ITER, dual=True)
+        t0 = time.time()
+        skl.fit(X_train, y_train)
+        elapsed = time.time() - t0
+ 
+        acc = accuracy_score(y_test, skl.predict(X_test))
+        print(f"  Time: {elapsed:.3f}s | Iter: {skl.n_iter_} | Acc: {acc:.4f}")
+ 
+        results.append((label, elapsed, skl.n_iter_, acc, None))
+ 
+    print("\n" + "=" * 85)
+    print(f"{'Method':<45} {'Time':>8} {'Iter':>6} {'Acc':>8} {'Primal obj':>14}")
+    print("-" * 85)
+    for label, t, it, acc, pobj in results:
+        pobj_str = f"{pobj:.4f}" if pobj is not None else "-"
+        print(f"{label:<45} {t:>8.3f} {it:>6} {acc:>8.4f} {pobj_str:>14}")
 
-    print("\n=== DCD L2-SVM ===")
-    model_l2 = LinearSVM(loss="l2", C=C, max_iter=5000, tol=1e-4, permute=True, verbose=False)
-    t0 = time.time()
-    model_l2.fit(X_train, y_train)
-    t_l2 = time.time() - t0
-    acc_l2 = model_l2.score(X_test, y_test)
-    pobj_l2 = model_l2.primal_objective(X_train, y_train)
-    print(f"  Time: {t_l2:.3f}s | Iter: {model_l2.n_iter_} | Acc: {acc_l2:.4f} | Primal obj: {pobj_l2:.6f}")
-
-    print("\n=== sklearn LinearSVC (L1 hinge) ===")
-    skl_l1 = LinearSVC(loss="hinge", C=C, max_iter=5000, dual=True)
-    t0 = time.time()
-    skl_l1.fit(X_train, y_train)
-    t_skl_l1 = time.time() - t0
-    acc_skl_l1 = accuracy_score(y_test, skl_l1.predict(X_test))
-    print(f"  Time: {t_skl_l1:.3f}s | Iter: {skl_l1.n_iter_} | Acc: {acc_skl_l1:.4f}")
-
-    print("\n=== sklearn LinearSVC (L2 hinge) ===")
-    skl_l2 = LinearSVC(loss="squared_hinge", C=C, max_iter=5000, dual=True)
-    t0 = time.time()
-    skl_l2.fit(X_train, y_train)
-    t_skl_l2 = time.time() - t0
-    acc_skl_l2 = accuracy_score(y_test, skl_l2.predict(X_test))
-    print(f"  Time: {t_skl_l2:.3f}s | Iter: {skl_l2.n_iter_} | Acc: {acc_skl_l2:.4f}")
-
-    print("\n=== Summary ===")
-    print(f"{'Method':<25} {'Time (s)':>10} {'Iter':>10} {'Accuracy':>10}")
-    print("-" * 57)
-    print(f"{'DCD L1-SVM':<25} {t_l1:>10.3f} {model_l1.n_iter_:>10} {acc_l1:>10.4f}")
-    print(f"{'DCD L2-SVM':<25} {t_l2:>10.3f} {model_l2.n_iter_:>10} {acc_l2:>10.4f}")
-    print(f"{'sklearn LinearSVC L1':<25} {t_skl_l1:>10.3f} {skl_l1.n_iter_:>10} {acc_skl_l1:>10.4f}")
-    print(f"{'sklearn LinearSVC L2':<25} {t_skl_l2:>10.3f} {skl_l2.n_iter_:>10} {acc_skl_l2:>10.4f}")
 
 if __name__ == "__main__":
     main()
