@@ -2,15 +2,23 @@ import time
 import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
+from sklearn.preprocessing import StandardScaler
 
 from data_loader import load_libsvm
+from data_generator import generate_sparse_dataset
 from svm import LinearSVM
 
 
 def main():
-    data_path = "data/news20" 
+    data_path = "data/skin" 
     print(f"Loading {data_path} ...")
     X, y = load_libsvm(data_path)
+    # X, y = generate_sparse_dataset(
+    #     n_samples=200000,
+    #     n_features=500,
+    #     sparsity=0.9,
+    #     random_state=42
+    # )
     print(f"  X: {X.shape}, nnz = {X.nnz}")
     print(f"  y: {y.shape}, classes = {np.unique(y)}")
 
@@ -22,6 +30,10 @@ def main():
 
     X_train, y_train = X[train_idx], y[train_idx]
     X_test, y_test = X[test_idx], y[test_idx]
+
+    # scaler = StandardScaler(with_mean=False)
+    # X_train = scaler.fit_transform(X_train)
+    # X_test = scaler.transform(X_test)
 
     C = 1.0
 
