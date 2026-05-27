@@ -32,6 +32,7 @@ class LinearSVM:
         tol: float = 1e-4,
         permute: bool = True,
         shrinking: bool = False,
+        online: bool = False,
         verbose: bool = False
     ):
         if loss not in LOSS_REGISTRY:
@@ -44,6 +45,7 @@ class LinearSVM:
         self.tol = tol
         self.permute = permute
         self.shrinking = shrinking
+        self.online = online
         self.verbose = verbose
         self.n_iter_ = 0
 
@@ -76,6 +78,7 @@ class LinearSVM:
             tol=self.tol,
             permute=self.permute,
             shrinking=self.shrinking,
+            online=self.online,
             verbose=self.verbose,
         )
         self.n_iter_ = len(self.obj_history_)

@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.svm import LinearSVC
 from sklearn.metrics import accuracy_score
 from itertools import product
+from sklearn.preprocessing import StandardScaler
 
 from data_loader import load_libsvm
 from data_generator import generate_sparse_dataset
@@ -10,7 +11,7 @@ from svm import LinearSVM
 
 
 def main():
-    data_path = "data/news20" 
+    data_path = "data/rcv1" 
     print(f"Loading {data_path} ...")
     X, y = load_libsvm(data_path)
     # X, y = generate_sparse_dataset(
@@ -31,9 +32,9 @@ def main():
     X_train, y_train = X[train_idx], y[train_idx]
     X_test, y_test = X[test_idx], y[test_idx]
 
-    # scaler = StandardScaler(with_mean=False)
-    # X_train = scaler.fit_transform(X_train)
-    # X_test = scaler.transform(X_test)
+    scaler = StandardScaler(with_mean=False)
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
     C = 1.0
     MAX_ITER = 5000
@@ -41,15 +42,15 @@ def main():
  
     results = []
 
-    for loss, do_permute, do_shrink in product(
-        ["l1", "l2"], [False, True], [False, True]
+    for loss, do_permute, do_shrink, do_online in product(
+        ["l1", "l2"], [False, True], [False, True], [False, True]
     ):
-        label = f"DCD {loss.upper()} perm={do_permute:<5} shrink={do_shrink}"
+        label = f"DCD {loss.upper()} perm={do_permute:<5} shrink={do_shrink} online={do_online}"
         print(f"\n=== {label} ===")
  
         model = LinearSVM(
             loss=loss, C=C, max_iter=MAX_ITER, tol=TOL,
-            permute=do_permute, shrinking=do_shrink, verbose=False,
+            permute=do_permute, shrinking=do_shrink, verbose=False, online=do_online
         )
         t0 = time.time()
         model.fit(X_train, y_train)

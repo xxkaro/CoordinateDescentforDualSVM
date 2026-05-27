@@ -76,6 +76,7 @@ def dual_coordinate_descent(
     max_iter: int = 1000,
     tol: float = 1e-4,
     permute: bool = True,
+    online: bool = False,
     shrinking: bool = False,
     verbose: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, list[float]]:
@@ -105,12 +106,14 @@ def dual_coordinate_descent(
     m_bar = -np.inf
  
     for k in pbar:
+        if online:
+            perm = np.random.randint(0, l, size=1)
         if permute:
             np.random.shuffle(perm)
  
         M_k, m_k = _dcd_inner(
             X_data, X_indices, X_indptr, y, alpha, w, Q_bar_ii,
-            Dii, U, perm, active, M_bar, m_bar, shrinking,
+            Dii, U, perm, active, M_bar, m_bar, shrinking
         )
  
         dual_obj = 0.5 * np.dot(w, w) + 0.5 * Dii * np.dot(alpha, alpha) - np.sum(alpha)
@@ -125,7 +128,7 @@ def dual_coordinate_descent(
             })
  
         # Stopping / unshrinking logic
-        if M_k - m_k < tol:
+        if not online and M_k - m_k < tol:
             if shrinking and not np.all(active):
                 # Active set converged but some elements are shrunken.
                 # Unshrinking
