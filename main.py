@@ -9,7 +9,7 @@ from svm import LinearSVM
 
 
 def main():
-    data_path = "data/news20"
+    data_path = "data/skin"
     print(f"Loading {data_path} ...")
     X, y = load_libsvm(data_path)
     print(f"  X: {X.shape}, nnz = {X.nnz}")
