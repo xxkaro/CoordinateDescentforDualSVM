@@ -1,6 +1,6 @@
 import time
 import numpy as np
-from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score
 from itertools import product
 from sklearn.preprocessing import StandardScaler
@@ -62,24 +62,26 @@ def main():
  
         results.append((label, elapsed, model.n_iter_, acc, pobj))
  
-    for skl_loss, skl_label in [("hinge", "L1"), ("squared_hinge", "L2")]:
-        label = f"sklearn LinearSVC {skl_label}"
-        print(f"\n=== {label} ===")
- 
-        skl = LinearSVC(loss=skl_loss, C=C, max_iter=MAX_ITER, dual=True)
-        t0 = time.time()
-        skl.fit(X_train, y_train)
-        elapsed = time.time() - t0
- 
-        acc = accuracy_score(y_test, skl.predict(X_test))
-        print(f"  Time: {elapsed:.3f}s | Iter: {skl.n_iter_} | Acc: {acc:.4f}")
- 
-        results.append((label, elapsed, skl.n_iter_, acc, None))
- 
+    # for skl_loss, skl_label in [("hinge", "L1"), ("squared_hinge", "L2")]:
+    label = f"sklearn LinearSVC"
+    print(f"\n=== {label} ===")
+
+    skl = SVC(kernel="linear", shrinking=True, C=C, max_iter=MAX_ITER, tol=TOL)
+    t0 = time.time()
+    skl.fit(X_train, y_train)
+    elapsed = time.time() - t0
+
+    acc = accuracy_score(y_test, skl.predict(X_test))
+    print(f"  Time: {elapsed:.3f}s | Iter: {skl.n_iter_} | Acc: {acc:.4f}")
+
+    results.append((label, elapsed, skl.n_iter_, acc, None))
+
     print("\n" + "=" * 85)
     print(f"{'Method':<45} {'Time':>8} {'Iter':>6} {'Acc':>8} {'Primal obj':>14}")
     print("-" * 85)
     for label, t, it, acc, pobj in results:
+        if type(it) is np.ndarray or type(it) is list:
+            it = it[0] if len(it) > 0 else 0
         pobj_str = f"{pobj:.4f}" if pobj is not None else "-"
         print(f"{label:<45} {t:>8.3f} {it:>6} {acc:>8.4f} {pobj_str:>14}")
 

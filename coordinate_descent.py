@@ -28,7 +28,7 @@ def _dcd_inner(X_data, X_indices, X_indptr, y, alpha, w, Q_bar_ii,
         G = yi * wTx - 1.0 + Dii * ai
  
         # Shrinking
-        if do_shrink:
+        if len(perm) > 1 and do_shrink:
             if ai == 0.0 and G > M_bar:
                 active[idx] = False
                 continue
@@ -89,6 +89,10 @@ def dual_coordinate_descent(
     X_data = X.data
     X_indices = X.indices
     X_indptr = X.indptr
+
+    online_seen = 0
+    online_M = -np.inf
+    online_m = np.inf
  
     Q_bar_ii = np.array(X.multiply(X).sum(axis=1)).ravel() + Dii
  
@@ -108,14 +112,18 @@ def dual_coordinate_descent(
     for k in pbar:
         if online:
             perm = np.random.randint(0, l, size=1)
-        if permute:
+        elif permute:
             np.random.shuffle(perm)
  
         M_k, m_k = _dcd_inner(
             X_data, X_indices, X_indptr, y, alpha, w, Q_bar_ii,
             Dii, U, perm, active, M_bar, m_bar, shrinking
         )
- 
+        if online:
+            online_M = max(online_M, M_k)
+            online_m = min(online_m, m_k)
+            online_seen += len(perm)
+
         dual_obj = 0.5 * np.dot(w, w) + 0.5 * Dii * np.dot(alpha, alpha) - np.sum(alpha)
         obj_history.append(dual_obj)
  
@@ -128,25 +136,40 @@ def dual_coordinate_descent(
             })
  
         # Stopping / unshrinking logic
-        if not online and M_k - m_k < tol:
-            if shrinking and not np.all(active):
-                # Active set converged but some elements are shrunken.
-                # Unshrinking
-                active[:] = True
-                M_bar = np.inf
-                m_bar = -np.inf
-                if verbose:
-                    pbar.write(f"Iter {k}: active set converged, unshrinking...")
-                continue
-            else:
-                # Either shrinking is off, or all elements are active
-                # and we still converged.
-                if verbose:
-                    pbar.write(
-                        f"Converged at iteration {k}: "
-                        f"M_k - m_k = {M_k - m_k:.6e} < tol"
-                    )
-                break
+        if online:
+            if online_seen >= l:
+                if online_M - online_m < tol:
+                    if verbose:
+                        pbar.write(
+                            f"Online converged at iteration {k}: "
+                            f"M_k - m_k = {online_M - online_m:.6e} < tol"
+                        )
+
+                    online_seen = 0
+                    online_M = -np.inf
+                    online_m = np.inf
+
+
+        else:
+            if M_k - m_k < tol:
+                if shrinking and not np.all(active):
+                    # Active set converged but some elements are shrunken.
+                    # Unshrinking
+                    active[:] = True
+                    M_bar = np.inf
+                    m_bar = -np.inf
+                    if verbose:
+                        pbar.write(f"Iter {k}: active set converged, unshrinking...")
+                    continue
+                else:
+                    # Either shrinking is off, or all elements are active
+                    # and we still converged.
+                    if verbose:
+                        pbar.write(
+                            f"Converged at iteration {k}: "
+                            f"M_k - m_k = {M_k - m_k:.6e} < tol"
+                        )
+                    break
  
         # Update shrinking thresholds for next iteration
         if shrinking:
