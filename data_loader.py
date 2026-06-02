@@ -43,7 +43,7 @@ def load_libsvm(filepath: str) -> tuple[csr_matrix, np.ndarray]:
         if set(np.unique(y)).issubset({0.0, 1.0}):
             y[y == 0.0] = -1.0
             print("Warning: Labels in {0, 1} detected. Converted to {-1, +1}.")
-        if set(np.unique(y)).issubset({1.0, 2.0}):
+        elif set(np.unique(y)).issubset({1.0, 2.0}):
             y[y == 2.0] = -1.0
             print("Warning: Labels in {1, 2} detected. Converted to {-1, +1}.")
         else:

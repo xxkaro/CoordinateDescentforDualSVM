@@ -11,7 +11,7 @@ from svm import LinearSVM
 
 
 def main():
-    data_path = "data/rcv1" 
+    data_path = "data/SUSY"
     print(f"Loading {data_path} ...")
     X, y = load_libsvm(data_path)
     # X, y = generate_sparse_dataset(
@@ -36,9 +36,9 @@ def main():
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
 
-    C = 1.0
-    MAX_ITER = 5000
-    TOL = 1e-4
+    C = 1
+    MAX_ITER = 400000
+    TOL = 1
  
     results = []
 

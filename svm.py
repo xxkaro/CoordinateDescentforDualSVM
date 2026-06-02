@@ -92,7 +92,7 @@ class LinearSVM:
 
     def predict(self, X):
         """Predicts labels {-1, +1}."""
-        return np.sign(self.decision_function(X))
+        return np.where(self.decision_function(X) >= 0, 1.0, -1.0)
 
     def score(self, X, y):
         """Classification accuracy."""

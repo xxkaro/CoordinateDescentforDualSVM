@@ -144,10 +144,11 @@ def dual_coordinate_descent(
                             f"Online converged at iteration {k}: "
                             f"M_k - m_k = {online_M - online_m:.6e} < tol"
                         )
+                    break
 
-                    online_seen = 0
-                    online_M = -np.inf
-                    online_m = np.inf
+                online_seen = 0
+                online_M = -np.inf
+                online_m = np.inf
 
 
         else:
