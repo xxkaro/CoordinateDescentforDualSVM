@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.sparse import csr_matrix, issparse
 
-from coordinate_descent import dual_coordinate_descent
-from losses import LOSS_REGISTRY
+from algorithm.coordinate_descent import dual_coordinate_descent
+from algorithm.losses import LOSS_REGISTRY
 
 class LinearSVM:
     """

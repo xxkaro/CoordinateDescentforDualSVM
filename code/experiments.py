@@ -35,7 +35,7 @@ from sklearn.metrics import (
 
 from data_loader import load_libsvm
 from data_generator import generate_sparse_dataset
-from svm import LinearSVM
+from algorithm.svm import LinearSVM
 
 
 SEEDS       = [42, 142, 242]
