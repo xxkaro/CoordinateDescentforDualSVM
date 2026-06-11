@@ -334,11 +334,7 @@ def phase_3(best_method, best_C):
     done = _load_done(csv, kcols)
     _load_skips(csv)
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
-    dcd_l2_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm")
-    methods = [
-        ("dcd", best_method, dcd_cfg),
-        ("dcd", "DCD_L2_perm", dcd_l2_cfg),
-    ] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
+    methods = [("dcd", best_method, dcd_cfg)] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
     any_pending = any(
         _mk(dict(dataset=f"SUSY_{int(f*100)}pct", method=mn, seed=s, fraction=f), kcols) not in done
         for f in SUSY_FRACTIONS for _, mn, _ in methods for s in SEEDS
@@ -373,11 +369,7 @@ def phase_4(best_method, best_C):
     done = _load_done(csv, kcols)
     _load_skips(csv)
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
-    dcd_l2_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm")
-    methods = [
-        ("dcd", best_method, dcd_cfg),
-        ("dcd", "DCD_L2_perm", dcd_l2_cfg),
-    ] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
+    methods = [("dcd", best_method, dcd_cfg)] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
     for sp in SPARSITY_VALS:
         ds_label = f"synth_sp{sp}"
         print(f"\n  Generating {ds_label} ({SYNTH_N:,}x{SYNTH_D:,}) ...")
