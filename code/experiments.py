@@ -305,7 +305,13 @@ def phase_2(best_method):
     _load_skips(csv)
     tol = DEFAULT_TOL
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
-    methods = [("dcd", best_method, dcd_cfg)] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
+    dcd_l1ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L1_perm_shrink")
+    dcd_l2ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm_shrink")
+    methods = [
+        ("dcd", best_method, dcd_cfg),
+        ("dcd", "DCD_L1_perm_shrink", dcd_l1ps_cfg),
+        ("dcd", "DCD_L2_perm_shrink", dcd_l2ps_cfg),
+    ] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
     for ds in DATASETS:
         X, y = None, None
         for C in C_VALUES:
@@ -335,9 +341,13 @@ def phase_3(best_method, best_C):
     _load_skips(csv)
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
     dcd_l2_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm")
+    dcd_l1ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L1_perm_shrink")
+    dcd_l2ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm_shrink")
     methods = [
         ("dcd", best_method, dcd_cfg),
         ("dcd", "DCD_L2_perm", dcd_l2_cfg),
+        ("dcd", "DCD_L1_perm_shrink", dcd_l1ps_cfg),
+        ("dcd", "DCD_L2_perm_shrink", dcd_l2ps_cfg),
     ] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
     any_pending = any(
         _mk(dict(dataset=f"SUSY_{int(f*100)}pct", method=mn, seed=s, fraction=f), kcols) not in done
@@ -374,9 +384,13 @@ def phase_4(best_method, best_C):
     _load_skips(csv)
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
     dcd_l2_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm")
+    dcd_l1ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L1_perm_shrink")
+    dcd_l2ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm_shrink")
     methods = [
         ("dcd", best_method, dcd_cfg),
         ("dcd", "DCD_L2_perm", dcd_l2_cfg),
+        ("dcd", "DCD_L1_perm_shrink", dcd_l1ps_cfg),
+        ("dcd", "DCD_L2_perm_shrink", dcd_l2ps_cfg),
     ] + [(bt, bn, bc) for bn, bt, bc in BASELINES]
     for sp in SPARSITY_VALS:
         ds_label = f"synth_sp{sp}"
@@ -402,6 +416,8 @@ def phase_5(best_method, best_C):
     done = _load_done(csv, kcols)
     _load_skips(csv)
     dcd_cfg = next(cfg for cfg, name in ALL_DCD if name == best_method)
+    dcd_l1ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L1_perm_shrink")
+    dcd_l2ps_cfg = next(cfg for cfg, name in ALL_DCD if name == "DCD_L2_perm_shrink")
     for ds in DATASETS:
         X, y = None, None
         for tol in TOL_VALUES:
@@ -415,8 +431,15 @@ def phase_5(best_method, best_C):
                     print(f"    {X.shape[0]:,} x {X.shape[1]:,}")
                 Xtr, Xte, ytr, yte = _split(X, y, seed)
                 Xtr, Xte = _scale(Xtr, Xte)
-                _try_run(csv, done, kcols, kd, Xtr, ytr, Xte, yte,
-                         "dcd", best_method, dcd_cfg, best_C, tol, ds)
+                methods_5 = [
+                    (best_method, dcd_cfg),
+                    ("DCD_L1_perm_shrink", dcd_l1ps_cfg),
+                    ("DCD_L2_perm_shrink", dcd_l2ps_cfg),
+                ]
+                for mn, mc in methods_5:
+                    kd = dict(dataset=ds, method=mn, seed=seed, C=best_C, tol=tol)
+                    _try_run(csv, done, kcols, kd, Xtr, ytr, Xte, yte,
+                            "dcd", mn, mc, best_C, tol, ds)
 
 def show_summary():
     group_cols = {1: "method", 2: "C", 3: "fraction", 4: "sparsity", 5: "tol"}
