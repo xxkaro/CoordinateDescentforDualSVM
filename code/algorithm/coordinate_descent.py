@@ -79,7 +79,9 @@ def dual_coordinate_descent(
     online: bool = False,
     shrinking: bool = False,
     verbose: bool = False,
-) -> tuple[np.ndarray, np.ndarray, list[float]]:
+    alpha_star: np.ndarray = None,
+    f_star: float = None,
+) -> tuple[np.ndarray, np.ndarray, dict]:
 
     l, n = X.shape
  
@@ -99,7 +101,11 @@ def dual_coordinate_descent(
     alpha = np.zeros(l, dtype=np.float64)
     w = np.zeros(n, dtype=np.float64)
  
-    obj_history = []
+    history = {"dual_obj": [], "gap": []}
+    if alpha_star is not None:
+        history["alpha_dist"] = []
+    if f_star is not None:
+        history["subopt"] = []
  
     pbar = tqdm(range(max_iter), desc="DCD", leave=True)
     perm = np.arange(l, dtype=np.int64)
@@ -125,7 +131,12 @@ def dual_coordinate_descent(
             online_seen += len(perm)
 
         dual_obj = 0.5 * np.dot(w, w) + 0.5 * Dii * np.dot(alpha, alpha) - np.sum(alpha)
-        obj_history.append(dual_obj)
+        history["dual_obj"].append(dual_obj)
+        history["gap"].append(M_k - m_k)
+        if alpha_star is not None:
+            history["alpha_dist"].append(float(np.linalg.norm(alpha - alpha_star)))
+        if f_star is not None:
+            history["subopt"].append(dual_obj - f_star)
  
         if verbose and (k % 10 == 0 or k == max_iter - 1):
             n_active = int(np.sum(active))
@@ -177,4 +188,4 @@ def dual_coordinate_descent(
             M_bar = M_k if M_k > 0 else np.inf
             m_bar = m_k if m_k < 0 else -np.inf
  
-    return w, alpha, obj_history
+    return w, alpha, history

@@ -70,7 +70,7 @@ class LinearSVM:
 
         U, Dii = self.loss_fn.dual_params(self.C)
 
-        self.w_, self.alpha_, self.obj_history_ = dual_coordinate_descent(
+        self.w_, self.alpha_, self.history_ = dual_coordinate_descent(
             X, y,
             U=U,
             Dii=Dii,
@@ -81,6 +81,7 @@ class LinearSVM:
             online=self.online,
             verbose=self.verbose,
         )
+        self.obj_history_ = self.history_["dual_obj"]
         self.n_iter_ = len(self.obj_history_)
         return self
 

@@ -36,6 +36,8 @@ from sklearn.metrics import (
 from data_loader import load_libsvm
 from data_generator import generate_sparse_dataset
 from algorithm.svm import LinearSVM
+from algorithm.coordinate_descent import dual_coordinate_descent
+from algorithm.losses import LOSS_REGISTRY
 
 
 SEEDS       = [42, 142, 242]
@@ -55,6 +57,19 @@ TOL_VALUES = [1.0, 0.1, 0.01, 0.001, 0.0001]
 SUSY_FRACTIONS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 SPARSITY_VALS  = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
 SYNTH_N, SYNTH_D = 50_000, 5_000
+
+CONV_DIR = os.path.join(RESULTS_DIR, "convergence")
+REF_MAX_ITER = 50_000
+REF_TOL      = 1e-6
+CONV_MAX_ITER = 5_000
+CONV_VARIANTS = [
+    dict(loss="l1", permute=False, shrinking=False),
+    dict(loss="l1", permute=True,  shrinking=False),
+    dict(loss="l1", permute=True,  shrinking=True),
+    dict(loss="l2", permute=False, shrinking=False),
+    dict(loss="l2", permute=True,  shrinking=False),
+    dict(loss="l2", permute=True,  shrinking=True),
+]
 
 
 
@@ -441,8 +456,98 @@ def phase_5(best_method, best_C):
                     _try_run(csv, done, kcols, kd, Xtr, ytr, Xte, yte,
                             "dcd", mn, mc, best_C, tol, ds)
 
+def phase_6(best_C):
+    """Convergence analysis"""
+    print("\n" + "=" * 65)
+    print(f"  PHASE 6: Convergence curves, C={best_C}")
+    print("=" * 65)
+
+    os.makedirs(CONV_DIR, exist_ok=True)
+    csv   = os.path.join(RESULTS_DIR, "phase_6.csv")
+    kcols = ["dataset", "method", "seed"]
+    done  = _load_done(csv, kcols)
+
+    for ds in DATASETS:
+        X, y = None, None
+
+        for seed in SEEDS:
+            pending = []
+            for var in CONV_VARIANTS:
+                mn = _dcd_name(var["loss"], var["permute"], var["shrinking"], False)
+                kd = dict(dataset=ds, method=mn, seed=seed, C=best_C)
+                if _mk(kd, kcols) not in done:
+                    pending.append((mn, var))
+            if not pending:
+                continue
+
+            if X is None:
+                print(f"\n  Loading {ds} ...")
+                X, y = _load(ds)
+                print(f"    {X.shape[0]:,} x {X.shape[1]:,}")
+            Xtr, Xte, ytr, yte = _split(X, y, seed)
+            Xtr, Xte = _scale(Xtr, Xte)
+
+            refs = {}
+            for loss in ["l1", "l2"]:
+                ref_path = os.path.join(CONV_DIR, f"{ds}_seed{seed}_{loss}_ref.npz")
+                if os.path.exists(ref_path):
+                    d = np.load(ref_path)
+                    refs[loss] = (d["alpha_star"], float(d["f_star"]))
+                    print(f"    Loaded alpha* for {loss.upper()} (f*={refs[loss][1]:.6f})")
+                else:
+                    print(f"    Computing alpha* for {loss.upper()} "
+                          f"(max_iter={REF_MAX_ITER}, tol={REF_TOL}) ...", end=" ", flush=True)
+                    loss_fn = LOSS_REGISTRY[loss]()
+                    U, Dii = loss_fn.dual_params(best_C)
+                    _, alpha_star, ref_hist = dual_coordinate_descent(
+                        Xtr, ytr, U=U, Dii=Dii,
+                        max_iter=REF_MAX_ITER, tol=REF_TOL,
+                        permute=True, shrinking=True,
+                    )
+                    f_star = ref_hist["dual_obj"][-1]
+                    np.savez(ref_path, alpha_star=alpha_star, f_star=np.array(f_star))
+                    refs[loss] = (alpha_star, f_star)
+                    n = len(ref_hist["dual_obj"])
+                    print(f"{n} iter, f*={f_star:.6f}")
+
+            for mn, var in pending:
+                kd = dict(dataset=ds, method=mn, seed=seed, C=best_C)
+                print(f"    {ds} | {mn} | seed={seed} ... ", end="", flush=True)
+
+                loss = var["loss"]
+                alpha_star, f_star = refs[loss]
+                loss_fn = LOSS_REGISTRY[loss]()
+                U, Dii = loss_fn.dual_params(best_C)
+
+                t0 = time.time()
+                _, _, hist = dual_coordinate_descent(
+                    Xtr, ytr, U=U, Dii=Dii,
+                    max_iter=CONV_MAX_ITER, tol=1e-8,
+                    permute=var["permute"], shrinking=var["shrinking"],
+                    alpha_star=alpha_star, f_star=f_star,
+                )
+                elapsed = time.time() - t0
+
+                hist_path = os.path.join(CONV_DIR, f"{ds}_{mn}_seed{seed}.json")
+                with open(hist_path, "w") as f:
+                    json.dump(hist, f)
+
+                n_iter = len(hist["dual_obj"])
+                row = {
+                    **kd,
+                    "n_iter":          n_iter,
+                    "time_s":          elapsed,
+                    "final_gap":       hist["gap"][-1],
+                    "final_subopt":    hist["subopt"][-1],
+                    "final_alpha_dist": hist["alpha_dist"][-1],
+                }
+                _save_row(csv, row)
+                done.add(_mk(kd, kcols))
+                print(f"{elapsed:.1f}s  {n_iter} iter  "
+                      f"gap={hist['gap'][-1]:.2e}  subopt={hist['subopt'][-1]:.2e}")
+
 def show_summary():
-    group_cols = {1: "method", 2: "C", 3: "fraction", 4: "sparsity", 5: "tol"}
+    group_cols = {1: "method", 2: "C", 3: "fraction", 4: "sparsity", 5: "tol", 6: "method"}
     for i in range(1, 6):
         csv = os.path.join(RESULTS_DIR, f"phase_{i}.csv")
         if not os.path.exists(csv):
@@ -505,5 +610,12 @@ if __name__ == "__main__":
                 print("Run phases 1-2 first.")
                 continue
             [phase_3, phase_4, phase_5][phase_num - 3](best_method, best_C)
+        elif phase_num == 6:
+            if best_C is None:
+                best_C = _read_best_C()
+            if best_C is None:
+                print("Run phase 2 first.")
+                continue
+            phase_6(best_C)
 
     print(f"\n  method={best_method}  C={best_C}  tol={DEFAULT_TOL}")
